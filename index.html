@@ -114,6 +114,9 @@
         .badge-change { background-color: #ff4444; }
         .badge-town { background-color: #1e90ff; }
         .badge-low { background-color: #ff9f0a; }
+        .badge-high10 { background-color: #d48806; }
+        .badge-high15 { background-color: #722ed1; }
+        .badge-high1 { background-color: #007bff; }
         .filter-btn {
             padding: 5px 10px;
             margin: 0 5px;
@@ -162,7 +165,10 @@
                 <label><input type="checkbox" id="tagUnchange" >存量不变商圈</label>
                 <label><input type="checkbox" id="tagTown" >乡镇商圈</label>
                 <label><input type="checkbox" id="tagLow" >低质量商圈</label>
-                </div>
+                <label><input type="checkbox" id="tagHigh10" ><span style="color:#d48806; font-weight:bold;">高容量(≥10)</span></label>
+                <label><input type="checkbox" id="tagHigh15" ><span style="color:#722ed1; font-weight:bold;">超高容量(≥15)</span></label>
+<!--                <label><input type="checkbox" id="tagHigh1" ><span style="color:#007bff;">容量(≥1)</span></label>-->
+            </div>
         </div>
         <div class="filter-buttons">
             <button class="filter-btn btn-primary" onclick="applyFilter()">应用筛选</button>
@@ -186,7 +192,7 @@
             <span class="info-value" id="h3"></span>
         </div>
         <div class="info-item">
-            <span class="info-label">总容量(当前):</span>
+            <span class="info-label">总容量(旧):</span>
             <span class="info-value" id="capacity_pred"></span>
         </div>
         <div class="info-item">
@@ -221,6 +227,10 @@
             <span class="info-label">是否新增:</span>
             <span class="info-value" id="is_new"></span>
         </div>
+        <div class="info-item">
+            <span class="info-label">高容量层级:</span>
+            <span class="info-value" id="high_capacity_tier"></span>
+        </div>
         </div>
     <div class="legend">
         <div style="font-weight: bold; margin-bottom: 5px;">图例</div>
@@ -248,6 +258,14 @@
         <div class="legend-item">
             <div class="legend-color" style="background-color: #ffffff; border: 2px dashed #9932CC;"></div>
             <span>新增商圈</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffffff; border: 2px solid #d48806;"></div>
+            <span>高容量商圈(≥10)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffffff; border: 2px solid #722ed1;"></div>
+            <span>超高容量商圈(≥15)</span>
         </div>
         </div>
 
@@ -278,6 +296,9 @@
             low: false,
             isNew: false,
             unchange: false,
+            high10: false,
+            high15: false,
+            high1: false,
         };
         
         // 初始化地图
@@ -339,7 +360,7 @@
             }
         }
 
-        // 合并三类区块数据，打平为单个数组
+        // 合并各类别区块数据，打平为单个数组
         function mergeBlockData(raw) {
             const isArrayInput = Array.isArray(raw);
             const changeList = isArrayInput ? raw : (raw.change_block_info || []);
@@ -347,6 +368,8 @@
             const lowList = isArrayInput ? [] : (raw.low_block_info || []);
             const unchangeList = isArrayInput ? [] : (raw.unchange_block_info || []);
             const newList = isArrayInput ? [] : (raw.new_block_info || []);
+            const high10List = isArrayInput ? [] : (raw.high_block_info_10 || []);
+            const high15List = isArrayInput ? [] : (raw.high_block_info_15 || []);
             // 兼容新增类别，允许不同字段命名
             const merged = new Map();
             
@@ -356,6 +379,10 @@
                 if (asBool(target.if_town_block)) target.isTown = true;
                 if (asBool(target.if_low_quality)) target.isLow = true;
                 if (asBool(target.if_new_block)) target.isNew = true;
+                const capNew = parseFloat(target.capacity_pred_new) || 0;
+                if (asBool(target.if_high_capacity_10) || capNew >= 10) target.isHigh10 = true;
+                if (asBool(target.if_high_capacity_15) || capNew >= 15) target.isHigh15 = true;
+                if (asBool(target.if_high_capacity_1) || capNew >= 1) target.isHigh1 = true;
             };
             
             const upsert = (item) => {
@@ -366,7 +393,10 @@
                         isChange: false,
                         isTown: false,
                         isLow: false,
-                        isNew: false
+                        isNew: false,
+                        isHigh10: false,
+                        isHigh15: false,
+                        isHigh1: false
                     });
                 } else {
                     merged.set(item.h3, { ...merged.get(item.h3), ...item });
@@ -409,6 +439,22 @@
                 if (target) {
                     target.isUnchange = true;
                     target.capacity_diff = target.capacity_diff ?? 0;
+                }
+            });
+
+            high10List.forEach(item => {
+                const target = upsert(item);
+                if (target) {
+                    target.isHigh10 = true;
+                    target.if_high_capacity_10 = 1;
+                }
+            });
+
+            high15List.forEach(item => {
+                const target = upsert(item);
+                if (target) {
+                    target.isHigh15 = true;
+                    target.if_high_capacity_15 = 1;
                 }
             });
             
@@ -584,6 +630,8 @@
             if (item.isLow) outlines.push({ color: '#ff9f0a', style: 'dashed' });
             if (item.isNew) outlines.push({ color: '#9932CC', style: 'dashed' });
             if (item.isTown) outlines.push({ color: '#1e90ff', style: 'dashed' });
+            if (item.isHigh15) outlines.push({ color: '#722ED1', style: 'solid' });
+            else if (item.isHigh10) outlines.push({ color: '#d48806', style: 'solid' });
             return outlines;
         }
         
@@ -599,6 +647,19 @@
             document.getElementById('is_town').textContent = item.isTown ? '是' : '否';
             document.getElementById('is_low').textContent = item.isLow ? '是' : '否';
             document.getElementById('is_new').textContent = item.isNew ? '是' : '否';
+            
+            const highTierEl = document.getElementById('high_capacity_tier');
+            if (highTierEl) {
+                if (item.isHigh15) {
+                    highTierEl.innerHTML = '<span style="color:#722ed1; font-weight:bold;">超高容量 (≥15)</span>';
+                } else if (item.isHigh10) {
+                    highTierEl.innerHTML = '<span style="color:#d48806; font-weight:bold;">高容量 (10~14)</span>';
+                } else if (item.capacity_pred_new >= 1) {
+                    highTierEl.innerHTML = '<span style="color:#666;">普通容量 (' + item.capacity_pred_new + ')</span>';
+                } else {
+                    highTierEl.textContent = '无';
+                }
+            }
             document.getElementById('tags').innerHTML = renderTagBadges(item);
             
             const diffElement = document.getElementById('capacity_real_diff');
@@ -622,6 +683,8 @@
             if (item.isTown) tags.push('<span class="badge badge-town">乡镇</span>');
             if (item.isLow) tags.push('<span class="badge badge-low">低质量</span>');
             if (item.isNew) tags.push('<span class="badge" style="background-color:#9932CC;">新增</span>');
+            if (item.isHigh15) tags.push('<span class="badge badge-high15">高容量≥15</span>');
+            else if (item.isHigh10) tags.push('<span class="badge badge-high10">高容量≥10</span>');
             return tags.length ? tags.join(' ') : '无';
         }
         
@@ -636,12 +699,20 @@
             tagFilters.low = document.getElementById('tagLow').checked;
             tagFilters.isNew = document.getElementById('tagNew').checked;
             tagFilters.unchange = document.getElementById('tagUnchange').checked;
+            tagFilters.high10 = document.getElementById('tagHigh10') ? document.getElementById('tagHigh10').checked : false;
+            tagFilters.high15 = document.getElementById('tagHigh15') ? document.getElementById('tagHigh15').checked : false;
+            tagFilters.high1 = document.getElementById('tagHigh1') ? document.getElementById('tagHigh1').checked : false;
+
             const selectedTags = [];
             if (tagFilters.change) selectedTags.push('change');
             if (tagFilters.town) selectedTags.push('town');
             if (tagFilters.low) selectedTags.push('low');
             if (tagFilters.isNew) selectedTags.push('new');
             if (tagFilters.unchange) selectedTags.push('unchange');
+            if (tagFilters.high10) selectedTags.push('high10');
+            if (tagFilters.high15) selectedTags.push('high15');
+            if (tagFilters.high1) selectedTags.push('high1');
+
             const useAllTags = tagFilters.all;
             
             filteredData = h3Data.filter(item => {
@@ -654,6 +725,9 @@
                     if (tag === 'low') return item.isLow;
                     if (tag === 'new') return item.isNew;
                     if (tag === 'unchange') return item.isUnchange;
+                    if (tag === 'high10') return item.isHigh10;
+                    if (tag === 'high15') return item.isHigh15;
+                    if (tag === 'high1') return item.isHigh1;
                     return true;
                 });
                 return zoneMatch && provinceMatch && cityMatch && tagMatch;
@@ -685,18 +759,48 @@
             document.getElementById('tagLow').checked = false;
             document.getElementById('tagNew').checked = false;
             document.getElementById('tagUnchange').checked = false;
+            if (document.getElementById('tagHigh10')) document.getElementById('tagHigh10').checked = false;
+            if (document.getElementById('tagHigh15')) document.getElementById('tagHigh15').checked = false;
+            if (document.getElementById('tagHigh1')) document.getElementById('tagHigh1').checked = false;
             tagFilters.all = true;
             tagFilters.change = false;
             tagFilters.town = false;
             tagFilters.low = false;
             tagFilters.isNew = false;
             tagFilters.unchange = false;
+            tagFilters.high10 = false;
+            tagFilters.high15 = false;
+            tagFilters.high1 = false;
             filteredData = null;
             drawH3Boundaries();
         }
         
         // 初始化筛选事件监听器
         function initFilterEventListeners() {
+            // 标签单选/多选联动逻辑：勾选具体标签时取消全部商圈，勾选全部商圈时清空具体标签
+            const tagIds = ['tagChange', 'tagTown', 'tagLow', 'tagNew', 'tagUnchange', 'tagHigh10', 'tagHigh15', 'tagHigh1'];
+            const allCheckbox = document.getElementById('tagAll');
+            if (allCheckbox) {
+                allCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        tagIds.forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.checked = false;
+                        });
+                    }
+                });
+            }
+            tagIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', function() {
+                        if (this.checked && allCheckbox) {
+                            allCheckbox.checked = false;
+                        }
+                    });
+                }
+            });
+
             // 大区选择改变时，更新省份和城市选项
             document.getElementById('zoneFilter').addEventListener('change', function() {
                 const selectedZone = this.value;
