@@ -261,11 +261,11 @@
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background-color: #ffffff; border: 2px solid #d48806;"></div>
-            <span>高容量商圈(≥10)</span>
+            <span>容量≥10</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background-color: #ffffff; border: 2px solid #722ed1;"></div>
-            <span>超高容量商圈(≥15)</span>
+            <span>容量≥15</span>
         </div>
         </div>
 
@@ -651,9 +651,9 @@
             const highTierEl = document.getElementById('high_capacity_tier');
             if (highTierEl) {
                 if (item.isHigh15) {
-                    highTierEl.innerHTML = '<span style="color:#722ed1; font-weight:bold;">超高容量 (≥15)</span>';
+                    highTierEl.innerHTML = '<span style="color:#722ed1; font-weight:bold;">容量≥15</span>';
                 } else if (item.isHigh10) {
-                    highTierEl.innerHTML = '<span style="color:#d48806; font-weight:bold;">高容量 (10~14)</span>';
+                    highTierEl.innerHTML = '<span style="color:#d48806; font-weight:bold;">10<=容量<=14</span>';
                 } else if (item.capacity_pred_new >= 1) {
                     highTierEl.innerHTML = '<span style="color:#666;">普通容量 (' + item.capacity_pred_new + ')</span>';
                 } else {
@@ -683,8 +683,8 @@
             if (item.isTown) tags.push('<span class="badge badge-town">乡镇</span>');
             if (item.isLow) tags.push('<span class="badge badge-low">低质量</span>');
             if (item.isNew) tags.push('<span class="badge" style="background-color:#9932CC;">新增</span>');
-            if (item.isHigh15) tags.push('<span class="badge badge-high15">高容量≥15</span>');
-            else if (item.isHigh10) tags.push('<span class="badge badge-high10">高容量≥10</span>');
+            if (item.isHigh15) tags.push('<span class="badge badge-high15">容量≥15</span>');
+            else if (item.isHigh10) tags.push('<span class="badge badge-high10">容量≥10</span>');
             return tags.length ? tags.join(' ') : '无';
         }
         
